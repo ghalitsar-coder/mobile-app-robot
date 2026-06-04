@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Feather } from "@expo/vector-icons";
 
+import { DPad } from "@/components/DPad";
 import { VirtualJoystick } from "@/components/VirtualJoystick";
 import { useRobot } from "@/context/RobotContext";
 import { useColors } from "@/hooks/useColors";
@@ -325,7 +326,8 @@ function KickButton() {
 export default function ControllerScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { telemetry, joystick } = useRobot();
+  const { telemetry, joystick, dpadDirection, setDpadDirection } = useRobot();
+  const [controlMode, setControlMode] = useState<"joystick" | "dpad">("joystick");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : insets.bottom;
@@ -413,13 +415,54 @@ export default function ControllerScreen() {
 
         {/* Movement section */}
         <SectionHeader title="MOVEMENT CONTROL" />
+
+        {/* Mode toggle: Joystick / D-Pad */}
+        <View style={[styles.modeToggleRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {(["joystick", "dpad"] as const).map((mode) => (
+            <Pressable
+              key={mode}
+              onPress={() => {
+                setControlMode(mode);
+                setDpadDirection(null);
+              }}
+              style={[
+                styles.modeToggleBtn,
+                {
+                  backgroundColor: controlMode === mode ? colors.primary : "transparent",
+                  borderColor: controlMode === mode ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.modeToggleText,
+                  {
+                    color: controlMode === mode ? colors.primaryForeground : colors.mutedForeground,
+                    fontFamily: "Inter_600SemiBold",
+                  },
+                ]}
+              >
+                {mode === "joystick" ? "Joystick" : "D-Pad"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         <View
           style={[
             styles.joystickCard,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <VirtualJoystick />
+          {controlMode === "joystick" ? (
+            <VirtualJoystick />
+          ) : (
+            <DPad
+              active={dpadDirection}
+              onPress={setDpadDirection}
+              onRelease={() => setDpadDirection(null)}
+            />
+          )}
 
           <View
             style={[styles.joystickInfo, { borderTopColor: colors.border }]}
@@ -439,7 +482,11 @@ export default function ControllerScreen() {
                   { color: colors.foreground, fontFamily: "Inter_600SemiBold" },
                 ]}
               >
-                {joystick.direction === "CENTER" ? "—" : joystick.direction}
+                {controlMode === "dpad"
+                  ? dpadDirection ?? "—"
+                  : joystick.direction === "CENTER"
+                  ? "—"
+                  : joystick.direction}
               </Text>
             </View>
             <View
@@ -460,7 +507,9 @@ export default function ControllerScreen() {
                   { color: colors.foreground, fontFamily: "Inter_600SemiBold" },
                 ]}
               >
-                {joystick.direction === "CENTER"
+                {controlMode === "dpad"
+                  ? dpadDirection ? "100%" : "0%"
+                  : joystick.direction === "CENTER"
                   ? "0%"
                   : `${Math.round(joystick.magnitude * 100)}%`}
               </Text>
@@ -495,6 +544,7 @@ export default function ControllerScreen() {
           <DribblerCard />
           <KickButton />
         </View>
+
 
         {/* Footer note */}
         <Text
@@ -565,6 +615,25 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 12,
+  },
+  modeToggleRow: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  modeToggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modeToggleText: {
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   sectionHeader: {
     flexDirection: "row",
