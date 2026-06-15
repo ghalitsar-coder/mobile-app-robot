@@ -14,6 +14,8 @@ import {
   MQTT_URL,
   directionToCsv,
   joystickToCsv,
+  rotateToCsv,
+  MQTT_ROTATE_TOPIC,
   shouldThrottle,
 } from "@/lib/mqttTopics";
 
@@ -47,6 +49,7 @@ interface RobotContextValue {
   connectToRobot: (url?: string) => void;
   disconnectRobot: () => void;
   publishDriveVector: (vx: number, vy: number, force?: boolean) => boolean;
+  publishRotation: (omega: number) => void;
   lastKickTime: number | null;
   mqttUrl: string;
   lastError: string | null;
@@ -234,8 +237,15 @@ export function RobotProvider({ children }: { children: React.ReactNode }) {
     [publish]
   );
 
+  const publishRotation = useCallback(
+    (omega: number) => {
+      publish(MQTT_ROTATE_TOPIC, rotateToCsv(omega));
+    },
+    [publish]
+  );
+
   const kick = useCallback(() => {
-    if (!dribblerActiveState) return;
+    if (dribblerActiveState) return; // Kick only when dribbler is OFF (ball free)
     publish(MQTT_TOPICS.actionKick, "KICK");
     setLastKickTime(Date.now());
   }, [dribblerActiveState, publish]);
@@ -255,6 +265,7 @@ export function RobotProvider({ children }: { children: React.ReactNode }) {
         connectToRobot,
         disconnectRobot,
         publishDriveVector,
+        publishRotation,
         lastKickTime,
         mqttUrl,
         lastError,

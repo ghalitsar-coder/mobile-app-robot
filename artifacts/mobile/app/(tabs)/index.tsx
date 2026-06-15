@@ -232,6 +232,58 @@ function DribblerCard() {
   );
 }
 
+function RotationButtons() {
+  const colors = useColors();
+  const { publishRotation } = useRobot();
+  const rotationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startRotation = useCallback((omega: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    publishRotation(omega);
+  }, [publishRotation]);
+
+  const stopRotation = useCallback(() => {
+    publishRotation(0);
+  }, [publishRotation]);
+
+  const spin180 = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    publishRotation(0.6);
+    if (rotationRef.current) clearTimeout(rotationRef.current);
+    rotationRef.current = setTimeout(() => publishRotation(0), 1000);
+  }, [publishRotation]);
+
+  const btn = (label: string, sub: string, onStart: () => void, onEnd?: () => void) => (
+    <Pressable
+      onPressIn={onStart}
+      onPressOut={onEnd}
+      onPress={onEnd ? spin180 : undefined}
+      style={({ pressed }) => [
+        styles.actuatorCard,
+        {
+          backgroundColor: pressed ? colors.primary : colors.card,
+          borderColor: pressed ? colors.primary : colors.border,
+        },
+      ]}
+    >
+      <Text style={[styles.actuatorLabel, { color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 17 }]}>
+        {label}
+      </Text>
+      <Text style={[styles.actuatorSubLabel, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>
+        {sub}
+      </Text>
+    </Pressable>
+  );
+
+  return (
+    <View style={styles.actuatorRow}>
+      {btn("↺", "CCW", () => startRotation(-0.5), stopRotation)}
+      {btn("⟳ 180°", "SPIN", spin180)}
+      {btn("↻", "CW", () => startRotation(0.5), stopRotation)}
+    </View>
+  );
+}
+
 function KickButton() {
   const colors = useColors();
   const { dribblerActive, kick, lastKickTime } = useRobot();
@@ -247,7 +299,7 @@ function KickButton() {
   }, [lastKickTime]);
 
   const handlePress = useCallback(() => {
-    if (!dribblerActive) return;
+    if (dribblerActive) return; // Kick only when dribbler is OFF (ball free)
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     Animated.sequence([
@@ -257,7 +309,7 @@ function KickButton() {
     kick();
   }, [dribblerActive, kick, scaleAnim]);
 
-  const isLocked = !dribblerActive;
+  const locked = dribblerActive; // Kick blocked when dribbler is ON
 
   return (
     <Animated.View
@@ -265,31 +317,31 @@ function KickButton() {
     >
       <Pressable
         onPress={handlePress}
-        disabled={isLocked}
+        disabled={locked}
         style={[
           styles.actuatorCard,
           styles.kickCard,
           {
-            backgroundColor: isLocked
+            backgroundColor: locked
               ? colors.muted
               : justKicked
               ? `${colors.primary}E0`
               : colors.primary,
-            borderColor: isLocked ? colors.border : colors.primary,
-            opacity: isLocked ? 0.55 : 1,
+            borderColor: locked ? colors.border : colors.primary,
+            opacity: locked ? 0.55 : 1,
           },
         ]}
       >
         <Feather
-          name={isLocked ? "lock" : "zap"}
+          name={locked ? "lock" : "zap"}
           size={22}
-          color={isLocked ? colors.mutedForeground : colors.primaryForeground}
+          color={locked ? colors.mutedForeground : colors.primaryForeground}
         />
         <Text
           style={[
             styles.actuatorLabel,
             {
-              color: isLocked ? colors.mutedForeground : colors.primaryForeground,
+              color: locked ? colors.mutedForeground : colors.primaryForeground,
               fontFamily: "Inter_700Bold",
               fontSize: 15,
             },
@@ -301,21 +353,21 @@ function KickButton() {
           style={[
             styles.actuatorSubLabel,
             {
-              color: isLocked ? colors.mutedForeground : `${colors.primaryForeground}CC`,
+              color: locked ? colors.mutedForeground : `${colors.primaryForeground}CC`,
               fontFamily: "Inter_500Medium",
             },
           ]}
         >
-          {isLocked ? "SAFETY LOCK" : justKicked ? "FIRED" : "ARMED"}
+          {locked ? "DISABLED" : justKicked ? "FIRED" : "ARMED"}
         </Text>
-        {isLocked && (
+        {locked && (
           <Text
             style={[
               styles.interlockNote,
               { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
             ]}
           >
-            Enable dribbler first
+            Turn off dribbler first
           </Text>
         )}
       </Pressable>
@@ -545,6 +597,9 @@ export default function ControllerScreen() {
           <KickButton />
         </View>
 
+        {/* Rotation section */}
+        <SectionHeader title="ROTATION" />
+        <RotationButtons />
 
         {/* Footer note */}
         <Text
@@ -553,7 +608,7 @@ export default function ControllerScreen() {
             { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
           ]}
         >
-          Kick solenoid is hardware-interlocked with dribbler state.
+          Kick only when dribbler is OFF (ball free).
         </Text>
       </ScrollView>
     </View>
