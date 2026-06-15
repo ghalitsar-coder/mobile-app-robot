@@ -12,10 +12,10 @@ import {
   DriveDirection,
   MQTT_TOPICS,
   MQTT_URL,
+  IS_PRODUCTION,
   directionToCsv,
   joystickToCsv,
   rotateToCsv,
-  MQTT_ROTATE_TOPIC,
   shouldThrottle,
 } from "@/lib/mqttTopics";
 
@@ -219,12 +219,23 @@ export function RobotProvider({ children }: { children: React.ReactNode }) {
     [publishDrivePayload]
   );
 
+  const dpadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const setDpadDirection = useCallback(
     (direction: DriveDirection | null) => {
+      if (dpadIntervalRef.current) {
+        clearInterval(dpadIntervalRef.current);
+        dpadIntervalRef.current = null;
+      }
       setDpadDirectionState(direction);
       setJoystickState(defaultJoystick);
       const payload = direction ? directionToCsv(direction) : "0.00,0.00";
       publishDrivePayload(payload, true);
+      if (direction) {
+        dpadIntervalRef.current = setInterval(() => {
+          publishDrivePayload(payload, true);
+        }, 400);
+      }
     },
     [publishDrivePayload]
   );
@@ -232,21 +243,24 @@ export function RobotProvider({ children }: { children: React.ReactNode }) {
   const setDribblerActive = useCallback(
     (active: boolean) => {
       setDribblerActiveState(active);
-      publish(MQTT_TOPICS.actionDribble, active ? "LOCK" : "RELEASE");
+      if (MQTT_TOPICS.actionDribble) {
+        publish(MQTT_TOPICS.actionDribble, active ? "LOCK" : "RELEASE");
+      }
     },
     [publish]
   );
 
   const publishRotation = useCallback(
     (omega: number) => {
-      publish(MQTT_ROTATE_TOPIC, rotateToCsv(omega));
+      publish(MQTT_TOPICS.driveRotate, rotateToCsv(omega));
     },
     [publish]
   );
 
   const kick = useCallback(() => {
-    if (dribblerActiveState) return; // Kick only when dribbler is OFF (ball free)
-    publish(MQTT_TOPICS.actionKick, "KICK");
+    if (MQTT_TOPICS.actionDribble && dribblerActiveState) return; // Kick only when dribbler is OFF
+    const payload = IS_PRODUCTION ? "tendang" : "KICK";
+    publish(MQTT_TOPICS.actionKick, payload);
     setLastKickTime(Date.now());
   }, [dribblerActiveState, publish]);
 

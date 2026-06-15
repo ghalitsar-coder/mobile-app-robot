@@ -18,6 +18,7 @@ import { DPad } from "@/components/DPad";
 import { VirtualJoystick } from "@/components/VirtualJoystick";
 import { useRobot } from "@/context/RobotContext";
 import { useColors } from "@/hooks/useColors";
+import { IS_PRODUCTION, MQTT_TOPICS } from "@/lib/mqttTopics";
 
 const STATUS_LABELS: Record<string, string> = {
   demo: "DEMO MODE",
@@ -299,7 +300,7 @@ function KickButton() {
   }, [lastKickTime]);
 
   const handlePress = useCallback(() => {
-    if (dribblerActive) return; // Kick only when dribbler is OFF (ball free)
+    if (MQTT_TOPICS.actionDribble && dribblerActive) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     Animated.sequence([
@@ -309,7 +310,7 @@ function KickButton() {
     kick();
   }, [dribblerActive, kick, scaleAnim]);
 
-  const locked = dribblerActive; // Kick blocked when dribbler is ON
+  const locked = MQTT_TOPICS.actionDribble ? dribblerActive : false;
 
   return (
     <Animated.View
@@ -593,7 +594,7 @@ export default function ControllerScreen() {
         {/* Actuator section */}
         <SectionHeader title="ACTUATORS" />
         <View style={styles.actuatorRow}>
-          <DribblerCard />
+          {MQTT_TOPICS.actionDribble && <DribblerCard />}
           <KickButton />
         </View>
 
@@ -608,7 +609,7 @@ export default function ControllerScreen() {
             { color: colors.mutedForeground, fontFamily: "Inter_400Regular" },
           ]}
         >
-          Kick only when dribbler is OFF (ball free).
+          {IS_PRODUCTION ? "Kick always armed in PRODUCTION mode." : "Kick only when dribbler is OFF (ball free)."}
         </Text>
       </ScrollView>
     </View>

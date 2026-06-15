@@ -1,13 +1,39 @@
 export const MQTT_URL = process.env.EXPO_PUBLIC_MQTT_URL ?? "wss://broker.hivemq.com:8884/mqtt";
 
-export const MQTT_TOPICS = {
-  driveVector: process.env.EXPO_PUBLIC_MQTT_DRIVE_VECTOR_TOPIC ?? "robot/drive/vector",
-  actionKick: process.env.EXPO_PUBLIC_MQTT_KICK_TOPIC ?? "robot/action/kick",
-  actionDribble: process.env.EXPO_PUBLIC_MQTT_DRIBBLE_TOPIC ?? "robot/action/dribble",
-  statusUltrasonic: process.env.EXPO_PUBLIC_MQTT_ULTRASONIC_TOPIC ?? "robot/status/ultrasonic",
-  statusWifi: process.env.EXPO_PUBLIC_MQTT_WIFI_TOPIC ?? "robot/status/wifi",
-  statusMqtt: process.env.EXPO_PUBLIC_MQTT_STATUS_TOPIC ?? "robot/status/mqtt",
-} as const;
+const env = (process.env.EXPO_PUBLIC_ENV ?? "development").toLowerCase();
+export const IS_PRODUCTION = env === "production";
+
+export interface TopicSet {
+  driveVector: string;
+  actionKick: string;
+  actionDribble: string | null;
+  driveRotate: string;
+  statusUltrasonic: string;
+  statusWifi: string;
+  statusMqtt: string;
+}
+
+const DEV_TOPICS: TopicSet = {
+  driveVector: "robot/drive/vector",
+  actionKick: "robot/action/kick",
+  actionDribble: "robot/action/dribble",
+  driveRotate: "robot/drive/rotate",
+  statusUltrasonic: "robot/status/ultrasonic",
+  statusWifi: "robot/status/wifi",
+  statusMqtt: "robot/status/mqtt",
+};
+
+const PROD_TOPICS: TopicSet = {
+  driveVector: "robot/gerak/vector",
+  actionKick: "robot/tendang",
+  actionDribble: null,
+  driveRotate: "robot/gerak/rotate",
+  statusUltrasonic: "robot/jarak",
+  statusWifi: "robot/status/wifi",
+  statusMqtt: "robot/status/mqtt",
+};
+
+export const MQTT_TOPICS: TopicSet = IS_PRODUCTION ? PROD_TOPICS : DEV_TOPICS;
 
 export type DriveDirection = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
 
@@ -57,9 +83,6 @@ export function nowMs(): number {
 export function shouldThrottle(lastSentAt: number, intervalMs = 70): boolean {
   return nowMs() - lastSentAt < intervalMs;
 }
-
-// Rotation helpers
-export const MQTT_ROTATE_TOPIC = process.env.EXPO_PUBLIC_MQTT_ROTATE_TOPIC ?? "robot/drive/rotate";
 
 export function rotateToCsv(omega: number): string {
   return Math.max(-1, Math.min(1, omega)).toFixed(2);
